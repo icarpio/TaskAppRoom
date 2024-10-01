@@ -12,7 +12,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material3.Button
@@ -20,6 +19,7 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CheckboxDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
@@ -28,6 +28,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.livedata.observeAsState
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -38,35 +39,55 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.lifecycle.repeatOnLifecycle
 import com.example.taskapproom.addtasks.ui.model.TaskModel
+import androidx.compose.foundation.lazy.items
 
 @Composable
 fun TaskScreen(modifier: Modifier = Modifier,taskViewModel: TaskViewModel){
-
+    val lifecycle = LocalLifecycleOwner.current.lifecycle
     val showDialog:Boolean by taskViewModel.showDialog.observeAsState(false)
 
-    Box(modifier = Modifier
-        .fillMaxSize()
-        .padding(top = 60.dp)){
-       AddTaskDialog(
-           show = showDialog,
-           onDismiss = {taskViewModel.onDialogClose()},
-           onTaskAdded = {taskViewModel.onTaskCreated(it)})
-       FabDialog(
-           Modifier
-               .align(Alignment.BottomEnd)
-               .padding(16.dp),taskViewModel)
-        TaskList(taskViewModel)
+    val uiState by produceState<TaskUiState>(
+        initialValue = TaskUiState.Loading,
+        key1 = lifecycle,
+        key2 = taskViewModel
+    ){
+        lifecycle.repeatOnLifecycle(state = Lifecycle.State.STARTED){
+            taskViewModel.uiState.collect{value = it}
+        }
     }
+
+    when(uiState){
+        is TaskUiState.Error -> {}
+        TaskUiState.Loading -> {
+            CircularProgressIndicator()}
+        is TaskUiState.Success -> {
+            Box(modifier = Modifier
+                .fillMaxSize()
+                .padding(top = 60.dp)){
+            AddTaskDialog(
+                show = showDialog,
+                onDismiss = {taskViewModel.onDialogClose()},
+                onTaskAdded = {taskViewModel.onTaskCreated(it)})
+            FabDialog(
+                Modifier
+                    .align(Alignment.BottomEnd)
+                    .padding(16.dp),taskViewModel)
+            TaskList((uiState as TaskUiState.Success).tasks, taskViewModel)
+        }}
+    }
+
+
 }
 
 @Composable
-fun TaskList(taskViewModel: TaskViewModel){
-
-    val myTasks:List<TaskModel> = taskViewModel.tasks
+fun TaskList(tasks: List<TaskModel>,tasksViewModel:TaskViewModel) {
     LazyColumn {
-        items(myTasks, key = {it.id}){ task ->
-            ItemTask(task, taskViewModel = taskViewModel)
+        items(tasks, key = {it.id}){ task ->
+            ItemTask(taskModel = task, taskViewModel = tasksViewModel)
         }
     }
 }
@@ -78,7 +99,7 @@ fun ItemTask(taskModel: TaskModel, taskViewModel: TaskViewModel){
             .fillMaxWidth()
             .padding(horizontal = 4.dp, vertical = 8.dp)
             .pointerInput(Unit) {
-                detectTapGestures (onLongPress = {
+                detectTapGestures(onLongPress = {
                     taskViewModel.onItemRemove(taskModel)
                 })
             },
