@@ -7,6 +7,7 @@ import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.taskapproom.addtasks.domain.AddTaskUseCase
+import com.example.taskapproom.addtasks.domain.DeleteTaskUseCase
 import com.example.taskapproom.addtasks.domain.GetTasksUseCase
 import com.example.taskapproom.addtasks.domain.UpdateTaskUseCase
 import com.example.taskapproom.addtasks.ui.TaskUiState.Success
@@ -24,6 +25,7 @@ import javax.inject.Inject
 class TaskViewModel @Inject constructor(
     private val addTaskUseCase: AddTaskUseCase,
     private val updateTaskUseCase:UpdateTaskUseCase,
+    private val deleteTaskUseCase: DeleteTaskUseCase,
     getTasksUseCase:GetTasksUseCase
 
 ):ViewModel() {
@@ -57,12 +59,11 @@ class TaskViewModel @Inject constructor(
         viewModelScope.launch {
             updateTaskUseCase(taskModel.copy(selected = !taskModel.selected))
         }
-
     }
 
     fun onItemRemove(taskModel: TaskModel) {
-        /*
-        val task = _tasks.find { it.id == taskModel.id }
-        _tasks.remove(task)*/
+        viewModelScope.launch {
+            deleteTaskUseCase(taskModel)
+        }
     }
 }
